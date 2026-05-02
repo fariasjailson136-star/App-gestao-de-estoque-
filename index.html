@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acessórios Reis - Gestão Privada</title>
+    <style>
+        /* MANTENDO SEUS ESTILOS ORIGINAIS */
+        :root {
+            --primary: #2563eb; --success: #22c55e; --danger: #ef4444;
+            --dark: #1e293b; --light: #f8fafc; --warning: #f59e0b;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; margin: 0; padding: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; display: none; } 
+        #auth-container { max-width: 400px; margin: 50px auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .auth-form { display: flex; flex-direction: column; gap: 15px; }
+        .btn-auth { padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; }
+        .btn-login { background: var(--primary); }
+        .store-header { text-align: center; background: var(--dark); color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; position: relative; }
+        .btn-logout { position: absolute; right: 10px; top: 10px; background: var(--danger); font-size: 11px; padding: 6px 12px; border-radius: 4px; color: white; border: none; cursor: pointer; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .card { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        #stock-alert { background: #fee2e2; border-left: 5px solid var(--danger); padding: 12px; margin-bottom: 15px; border-radius: 6px; display: none; color: #991b1b; font-weight: bold; }
+        .form-group { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; align-items: end; }
+        input, button { padding: 12px; border: 1px solid #ddd; border-radius: 6px; }
+        .search-box { position: relative; margin-bottom: 20px; }
+        .search-box input { width: 100%; padding-left: 40px; box-sizing: border-box; }
+        .search-box::before { content: '🔍'; position: absolute; left: 15px; top: 12px; font-size: 18px; }
+        details { background: white; margin-bottom: 8px; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
+        summary { padding: 12px 15px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        .folder-content { padding: 10px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 450px; }
+        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+        .low-stock-row { color: var(--danger); font-weight: bold; }
+        .btn-action { border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; margin-right: 4px; }
+        .btn-venda { background: var(--success); }
+        .btn-edit { background: var(--warning); }
+        .btn-del { background: var(--danger); }
+        .btn-reset { background: var(--danger); width: 100%; margin-top: 15px; font-weight: bold; }
+        #expired-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        
+        /* Ajuste para campos extras de cadastro */
+        #extra-fields { display: none; flex-direction: column; gap: 15px; }
+    </style>
+</head>
+<body>
+
+<div id="expired-screen">
+    <h1 style="color: var(--danger);">ACESSO BLOQUEADO</h1>
+    <p id="msg-erro-login">Sua conta venceu ou ainda não foi ativada.</p>
+    <button onclick="logout()" class="btn-auth btn-login">Voltar para Login</button>
+</div>
+
+<div id="auth-container">
+    <div class="auth-form">
+        <h2 id="auth-title">Entrar no Sistema</h2>
+        
+        <div id="extra-fields">
+            <input type="text" id="auth-name" placeholder="Nome Completo / Loja">
+            <input type="tel" id="auth-whatsapp" placeholder="WhatsApp (DDD + Número)">
+        </div>
+
+        <input type="email" id="auth-email" placeholder="Seu E-mail">
+        <input type="password" id="auth-pass" placeholder="Senha">
+        
+        <button class="btn-auth btn-login" id="btn-auth-action">Acessar</button>
+        <button onclick="toggleAuth()" id="btn-toggle-text" style="background:none; border:none; color:var(--primary); cursor:pointer; text-decoration:underline; margin-top:10px;">Solicitar Cadastro</button>
+    </div>
+</div>
+
+<div class="container" id="app-container">
+    <div class="store-header">
+        <h1>Acessórios Reis</h1>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+        <p id="user-expiry-info" style="font-size: 11px; color: #fbbf24;"></p>
+    </div>
+
+    <div class="dashboard">
+        <div class="card"><h3>Lucro Real</h3><p id="profit-real" style="color: var(--success);">R$ 0,00</p></div>
+        <div class="card"><h3>Faturamento</h3><p id="total-revenue" style="color: var(--primary);">R$ 0,00</p></div>
+        <div class="card"><h3>Investimento</h3><p id="total-cost" style="color: var(--danger);">R$ 0,00</p></div>
+    </div>
+
+    <div id="stock-alert"></div>
+
+    <div class="form-group">
+        <input type="hidden" id="prod-id">
+        <input type="text" id="prod-name" placeholder="Nome">
+        <input type="text" id="prod-category" placeholder="Categoria">
+        <input type="number" id="prod-cost" placeholder="Custo R$" step="0.01">
+        <input type="number" id="prod-price" placeholder="Venda R$" step="0.01">
+        <input type="number" id="prod-qty" placeholder="Qtd">
+        <button class="btn-login btn-auth" id="btn-save-prod" style="padding: 10px;">Salvar</button>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="search-input" placeholder="Buscar por nome ou categoria..." onkeyup="filterSearch()">
+    </div>
+
+    <div id="categories-container"></div>
+    <button class="btn-auth btn-reset" onclick="resetSalesHistory()">🗑️ Limpar Histórico de Vendas</button>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getDatabase, ref, set, push, onValue, remove, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAYQoOGO55kztpwTaXpggjJui-lfE8gjkc",
+        authDomain: "gestao-de-estoque-29816.firebaseapp.com",
+        databaseURL: "https://gestao-de-estoque-29816-default-rtdb.firebaseio.com",
+        projectId: "gestao-de-estoque-29816",
+        storageBucket: "gestao-de-estoque-29816.firebasestorage.app",
+        messagingSenderId: "404486874828",
+        appId: "1:404486874828:web:30cd2cff0c5e353d83c469"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    let isLoginMode = true;
+    let productsList = [];
+    let userId = null;
+
+    window.toggleAuth = () => {
+        isLoginMode = !isLoginMode;
+        document.getElementById('auth-title').innerText = isLoginMode ? "Entrar no Sistema" : "Criar Nova Conta";
+        document.getElementById('btn-auth-action').innerText = isLoginMode ? "Acessar" : "Solicitar Ativação";
+        document.getElementById('btn-toggle-text').innerText = isLoginMode ? "Solicitar Cadastro" : "Já tenho conta? Login";
+        document.getElementById('extra-fields').style.display = isLoginMode ? "none" : "flex";
+    };
+
+    document.getElementById('btn-auth-action').onclick = async () => {
+        const email = document.getElementById('auth-email').value;
+        const pass = document.getElementById('auth-pass').value;
+        const name = document.getElementById('auth-name').value;
+        const whatsapp = document.getElementById('auth-whatsapp').value;
+
+        if(!email || !pass) return alert("E-mail e Senha são obrigatórios!");
+        
+        try {
+            if (isLoginMode) {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } else {
+                if(!name || !whatsapp) return alert("Preencha seu Nome e WhatsApp para contato!");
+                
+                const uc = await createUserWithEmailAndPassword(auth, email, pass);
+                // SALVANDO DADOS DE CONTATO PARA O ADM
+                await set(ref(db, 'users/' + uc.user.uid), { 
+                    email: email, 
+                    nome: name,
+                    whatsapp: whatsapp,
+                    expiry: new Date(2000, 0, 1).toISOString(),
+                    status: 'pendente'
+                });
+                alert("Solicitação enviada! Entraremos em contato via WhatsApp para ativar sua licença.");
+                signOut(auth);
+            }
+        } catch (e) { alert("Erro: " + e.message); }
+    };
+
+    window.logout = () => signOut(auth).then(() => location.reload());
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            userId = user.uid;
+            const snap = await get(ref(db, 'users/' + user.uid));
+            const userData = snap.val();
+
+            if (userData) {
+                if (userData.status === 'pendente') {
+                    document.getElementById('msg-erro-login').innerText = "Aguardando ativação do administrador. Verifique seu WhatsApp.";
+                    document.getElementById('expired-screen').style.display = 'flex';
+                    document.getElementById('auth-container').style.display = 'none';
+                    return;
+                }
+
+                const expiry = new Date(userData.expiry);
+                if (new Date() > expiry) {
+                    document.getElementById('msg-erro-login').innerText = "Licença expirada. Fale com o suporte no WhatsApp.";
+                    document.getElementById('expired-screen').style.display = 'flex';
+                    document.getElementById('auth-container').style.display = 'none';
+                } else {
+                    document.getElementById('auth-container').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'block';
+                    document.getElementById('user-expiry-info').innerText = `Licença até: ${expiry.toLocaleDateString()}`;
+                    initData();
+                }
+            }
+        } else {
+            document.getElementById('auth-container').style.display = 'block';
+        }
+    });
+
+    // --- FUNÇÕES DE DADOS (IGUAIS) ---
+    function initData() {
+        onValue(ref(db, `data/${userId}/products`), (snap) => {
+            productsList = snap.val() ? Object.keys(snap.val()).map(k => ({id: k, ...snap.val()[k]})) : [];
+            renderProducts(productsList);
+            checkLowStock();
+        });
+        onValue(ref(db, `data/${userId}/sales`), (snap) => {
+            const sales = snap.val() ? Object.values(snap.val()) : [];
+            updateStats(sales);
+        });
+    }
+
+    document.getElementById('btn-save-prod').onclick = () => {
+        const id = document.getElementById('prod-id').value;
+        const p = {
+            name: document.getElementById('prod-name').value,
+            category: document.getElementById('prod-category').value || "Geral",
+            cost: parseFloat(document.getElementById('prod-cost').value) || 0,
+            price: parseFloat(document.getElementById('prod-price').value) || 0,
+            qty: parseInt(document.getElementById('prod-qty').value) || 0
+        };
+        id ? update(ref(db, `data/${userId}/products/${id}`), p) : push(ref(db, `data/${userId}/products`), p);
+        document.querySelectorAll('.form-group input').forEach(i => i.value = '');
+        document.getElementById('prod-id').value = '';
+    };
+
+    window.sellItem = (id, p, c, q) => {
+        if(q <= 0) return alert("Sem estoque!");
+        update(ref(db, `data/${userId}/products/${id}`), { qty: q - 1 });
+        push(ref(db, `data/${userId}/sales`), { revenue: p, cost: c, date: new Date().toISOString() });
+    };
+
+    window.delItem = (id) => confirm("Excluir?") && remove(ref(db, `data/${userId}/products/${id}`));
+    window.resetSalesHistory = () => confirm("Zerar histórico?") && remove(ref(db, `data/${userId}/sales`));
+
+    function checkLowStock() {
+        const low = productsList.filter(p => p.qty <= 3);
+        const alertBox = document.getElementById('stock-alert');
+        if (low.length > 0) {
+            alertBox.style.display = 'block';
+            alertBox.innerHTML = `⚠️ ESTOQUE BAIXO: ${low.map(p => p.name).join(', ')}`;
+        } else { alertBox.style.display = 'none'; }
+    }
+
+    window.filterSearch = () => {
+        const term = document.getElementById('search-input').value.toLowerCase();
+        const filtered = productsList.filter(p => 
+            p.name.toLowerCase().includes(term) || p.category.toLowerCase().includes(term)
+        );
+        renderProducts(filtered);
+    };
+
+    window.editItem = (id, n, cat, c, p, q) => {
+        document.getElementById('prod-id').value = id;
+        document.getElementById('prod-name').value = n;
+        document.getElementById('prod-category').value = cat;
+        document.getElementById('prod-cost').value = c;
+        document.getElementById('prod-price').value = p;
+        document.getElementById('prod-qty').value = q;
+        window.scrollTo(0,0);
+    };
+
+    function renderProducts(list) {
+        const container = document.getElementById('categories-container');
+        container.innerHTML = '';
+        const groups = list.reduce((acc, p) => {
+            acc[p.category] = acc[p.category] || [];
+            acc[p.category].push(p);
+            return acc;
+        }, {});
+        for (let cat in groups) {
+            const det = document.createElement('details');
+            det.open = true;
+            det.innerHTML = `<summary>📂 ${cat} (${groups[cat].length})</summary>
+                <div class="folder-content"><table>
+                ${groups[cat].map(p => `<tr class="${p.qty <= 3 ? 'low-stock-row' : ''}">
+                    <td>${p.name}</td><td>${p.qty}</td><td>R$ ${p.price.toFixed(2)}</td>
+                    <td>
+                        <button class="btn-action btn-venda" onclick="sellItem('${p.id}',${p.price},${p.cost},${p.qty})">Venda</button>
+                        <button class="btn-action btn-edit" onclick="editItem('${p.id}','${p.name}','${p.category}',${p.cost},${p.price},${p.qty})">✏️</button>
+                        <button class="btn-action btn-del" onclick="delItem('${p.id}')">🗑️</button>
+                    </td>
+                </tr>`).join('')}</table></div>`;
+            container.appendChild(det);
+        }
+    }
+
+    function updateStats(sales) {
+        let rev = 0, cost = 0;
+        sales.forEach(s => { rev += s.revenue; cost += s.cost; });
+        document.getElementById('total-revenue').innerText = `R$ ${rev.toFixed(2)}`;
+        document.getElementById('total-cost').innerText = `R$ ${cost.toFixed(2)}`;
+        document.getElementById('profit-real').innerText = `R$ ${(rev - cost).toFixed(2)}`;
+    }
+</script>
+</body>
+</html>
